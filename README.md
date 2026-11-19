@@ -6,7 +6,7 @@ Three applications for a 20-minute demonstration: native browser image/audio, br
 | --- | --- | --- | --- |
 | [01 - Native browser](examples/01-native-browser) | Passport image fills a form; microphone audio becomes text | Chrome Prompt API | http://localhost:4200 |
 | [02 - Browser RAG](examples/02-browser-rag) | E5 finds cold-room manual passages; Gemma explains the evidence | Transformers.js / ONNX Runtime Web | http://localhost:4400 |
-| [03 - AG-UI](examples/03-ag-ui) | Natural language becomes reviewed, read-only SQL and updates the existing UI | Local Chat Completions model + Mastra | http://localhost:4300 |
+| [03 - AG-UI](examples/03-ag-ui) | Natural language becomes reviewed, read-only SQL and updates the existing UI | Local Chat Completions model + Mastra | http://localhost:4600 |
 
 ## Setup
 

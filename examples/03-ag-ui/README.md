@@ -22,7 +22,7 @@ pnpm dev
 
 The configured endpoint is logged at startup. `.env.example` defaults to localhost:8080/v1 and a non-secret local API-key placeholder. Set LOCAL_MODEL_BASE_URL, LOCAL_MODEL_NAME and optionally LOCAL_REVIEW_MODEL to match your internal server. For a remote server on your own infrastructure, provide its explicit URL and authentication. No server selection or cloud fallback happens automatically.
 
-- App: http://localhost:4300
+- App: http://localhost:4600
 - Facility API: http://127.0.0.1:3101
 - Mastra Studio/API: http://localhost:4211
 
