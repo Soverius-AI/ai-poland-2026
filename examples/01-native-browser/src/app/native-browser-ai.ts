@@ -2,17 +2,13 @@ import { Injectable, signal } from '@angular/core';
 import { parsePassport, passportSchema } from './passport';
 export type InputKind = 'image' | 'audio';
 export const PREPARATION_STALL_MS = 60_000;
-type Availability =
-  'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unsupported' | 'checking';
 interface Preparation {
-  availability: Availability;
   ready: boolean;
   preparing: boolean;
   progress: number | undefined;
   error: string;
 }
 const initial = (): Preparation => ({
-  availability: 'checking',
   ready: false,
   preparing: false,
   progress: undefined,
@@ -33,34 +29,9 @@ export class NativeBrowserAi {
   readonly states = signal<Record<InputKind, Preparation>>({ image: initial(), audio: initial() });
   readonly #sessions: Partial<Record<InputKind, LanguageModel>> = {};
   readonly #attempts: Partial<Record<InputKind, AbortController>> = {};
-  async checkAvailability(kind: InputKind, preserveError = false) {
-    if (typeof LanguageModel === 'undefined') {
-      this.#update(kind, { availability: 'unsupported' });
-      return;
-    }
-    try {
-      this.#update(kind, {
-        availability: await LanguageModel.availability(inputOptions[kind]),
-        error: preserveError ? this.states()[kind].error : '',
-      });
-    } catch (error) {
-      this.#update(kind, { availability: 'unavailable', error: message(error) });
-    }
-  }
-  async checkAndPrepareInstalled(kind: InputKind) {
-    await this.checkAvailability(kind);
-    if (this.states()[kind].availability !== 'available') return;
-    try {
-      await this.prepare(kind);
-    } catch {
-      // Preparation failures are displayed per modality; leave explicit retry available.
-    }
-  }
   async prepare(kind: InputKind) {
     const current = this.states()[kind];
     if (current.ready || current.preparing) return;
-    if (['unavailable', 'unsupported', 'checking'].includes(current.availability))
-      throw new Error(`The browser cannot prepare ${kind} input. Check availability first.`);
     const controller = new AbortController();
     this.#attempts[kind] = controller;
     this.#update(kind, { preparing: true, error: '', progress: undefined });
@@ -85,6 +56,8 @@ export class NativeBrowserAi {
     });
     restartStallTimer();
     try {
+      if (typeof LanguageModel === 'undefined')
+        throw new Error('This browser does not support the Prompt API.');
       const creation = LanguageModel.create({
         ...inputOptions[kind],
         signal: controller.signal,
@@ -116,7 +89,7 @@ export class NativeBrowserAi {
       }
       this.#sessions[kind] = session;
       // Progress at 100% is not readiness: only a resolved create() is a session.
-      this.#update(kind, { ready: true, availability: 'available', progress: 1 });
+      this.#update(kind, { ready: true, progress: 1 });
     } catch (error) {
       // A cancelled/replaced attempt must not change the state of a newer retry.
       if (this.#attempts[kind] !== controller) return;
@@ -127,7 +100,6 @@ export class NativeBrowserAi {
       if (this.#attempts[kind] === controller) {
         delete this.#attempts[kind];
         this.#update(kind, { preparing: false });
-        void this.checkAvailability(kind, true);
       }
     }
   }
@@ -178,7 +150,6 @@ export class NativeBrowserAi {
   }
   reset(kind: InputKind) {
     this.#stop(kind);
-    void this.checkAvailability(kind);
   }
   destroy() {
     for (const kind of ['image', 'audio'] as const) this.#stop(kind);

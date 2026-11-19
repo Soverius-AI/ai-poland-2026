@@ -3,15 +3,17 @@ import { NativeBrowserAi, inputOptions } from './native-browser-ai';
 import { emptyPassport } from './passport';
 afterEach(() => vi.unstubAllGlobals());
 describe('native model lifecycle', () => {
-  it('checks availability without starting a model download', async () => {
-    const create = vi.fn();
-    const availability = vi.fn().mockResolvedValue('downloadable');
+  it('creates a session directly without querying availability', async () => {
+    const create = vi.fn().mockResolvedValue({ destroy: vi.fn() });
+    const availability = vi.fn().mockResolvedValue('downloading');
     vi.stubGlobal('LanguageModel', { availability, create });
     const ai = new NativeBrowserAi();
-    await ai.checkAvailability('image');
-    expect(availability).toHaveBeenCalledWith(inputOptions.image);
-    expect(create).not.toHaveBeenCalled();
-    expect(ai.states().image.ready).toBe(false);
+    await ai.prepare('image');
+    expect(create).toHaveBeenCalledWith(expect.objectContaining(inputOptions.image));
+    expect(availability).not.toHaveBeenCalled();
+    expect(ai.states().image.ready).toBe(true);
+    ai.destroy();
+    expect(availability).not.toHaveBeenCalled();
   });
   it('waits for create to resolve and isolates extraction in a disposable clone', async () => {
     const destroy = vi.fn();
@@ -35,7 +37,6 @@ describe('native model lifecycle', () => {
       create,
     });
     const ai = new NativeBrowserAi();
-    await ai.checkAvailability('image');
     const preparation = ai.prepare('image');
     expect(ai.states().image.progress).toBe(1);
     expect(ai.states().image.ready).toBe(false);
@@ -48,8 +49,6 @@ describe('native model lifecycle', () => {
   it('reports unsupported browsers and does not invent a remote fallback', async () => {
     vi.stubGlobal('LanguageModel', undefined);
     const ai = new NativeBrowserAi();
-    await ai.checkAvailability('audio');
-    expect(ai.states().audio.availability).toBe('unsupported');
     await expect(ai.prepare('audio')).rejects.toThrow();
   });
 });

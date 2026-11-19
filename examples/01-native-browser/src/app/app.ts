@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { form, FormField } from '@angular/forms/signals';
 import { ImageUpload } from './image-upload/image-upload';
 import { AudioRecording } from './audio-recording/audio-recording';
@@ -23,11 +23,7 @@ import { emptyPassport } from './passport';
           <h2>{{ kind === 'image' ? 'Image input' : 'Audio input' }}</h2>
           <p role="status">
             {{
-              state.ready
-                ? 'Ready'
-                : state.preparing
-                  ? 'Preparing browser model…'
-                  : state.availability
+              state.ready ? 'Ready' : state.preparing ? 'Preparing browser model…' : 'No session'
             }}
           </p>
           @if (state.preparing) {
@@ -46,29 +42,8 @@ import { emptyPassport } from './passport';
               }}
             </p>
           }
-          <button
-            type="button"
-            (click)="prepare(kind)"
-            [disabled]="
-              busy() ||
-              state.ready ||
-              ['checking', 'unsupported', 'unavailable'].includes(state.availability)
-            "
-          >
-            {{
-              state.availability === 'available'
-                ? 'Prepare session'
-                : state.availability === 'downloading'
-                  ? 'Continue preparation'
-                  : 'Download and prepare'
-            }}
-          </button>
-          <button
-            type="button"
-            (click)="ai.checkAndPrepareInstalled(kind)"
-            [disabled]="!!working()"
-          >
-            Check again
+          <button type="button" (click)="prepare(kind)" [disabled]="busy() || state.ready">
+            Create session
           </button>
           <button
             type="button"
@@ -128,7 +103,7 @@ import { emptyPassport } from './passport';
     }
   `,
 })
-export class App implements OnInit, OnDestroy {
+export class App implements OnDestroy {
   readonly ai = inject(NativeBrowserAi);
   readonly kinds: InputKind[] = ['image', 'audio'];
   readonly passport = signal(emptyPassport());
@@ -140,9 +115,6 @@ export class App implements OnInit, OnDestroy {
   readonly busy = computed(
     () => !!this.working() || this.kinds.some((kind) => this.ai.states()[kind].preparing),
   );
-  ngOnInit() {
-    for (const kind of this.kinds) void this.ai.checkAndPrepareInstalled(kind);
-  }
   ngOnDestroy() {
     this.ai.destroy();
   }
@@ -150,8 +122,8 @@ export class App implements OnInit, OnDestroy {
     this.error.set('');
     try {
       await this.ai.prepare(kind);
-    } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Model preparation failed.');
+    } catch {
+      // The service displays the create() error beside its modality.
     }
   }
   async extract(file: Blob) {

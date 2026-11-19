@@ -13,7 +13,6 @@ it('releases preparation when Chrome never reports progress or settles create', 
     create: vi.fn().mockReturnValue(new Promise(() => {})),
   });
   const ai = new NativeBrowserAi();
-  await ai.checkAvailability('image');
   const preparation = ai.prepare('image').catch((error) => error);
   await vi.advanceTimersByTimeAsync(60_000);
   expect(ai.states().image.preparing).toBe(false);
@@ -39,7 +38,6 @@ it('cancels a pending request and discards its late session without replacing a 
     .mockResolvedValueOnce({ destroy: newDestroy });
   vi.stubGlobal('LanguageModel', { availability: vi.fn().mockResolvedValue('available'), create });
   const ai = new NativeBrowserAi();
-  await ai.checkAvailability('image');
   const pending = ai.prepare('image');
   ai.reset('image');
   expect(ai.states().image.preparing).toBe(false);
@@ -67,7 +65,6 @@ it('continues a real progressing download instead of applying a fixed total time
     }),
   });
   const ai = new NativeBrowserAi();
-  await ai.checkAvailability('image');
   const pending = ai.prepare('image');
   await vi.advanceTimersByTimeAsync(59_000);
   const event = new Event('downloadprogress');
@@ -80,44 +77,20 @@ it('continues a real progressing download instead of applying a fixed total time
   await pending;
 });
 
-it('can refresh Chrome availability while preparation is pending without marking a session ready', async () => {
-  const availability = vi.fn().mockResolvedValueOnce('downloading').mockResolvedValue('available');
-  vi.stubGlobal('LanguageModel', {
-    availability,
-    create: vi.fn().mockReturnValue(new Promise(() => {})),
-  });
+it('shows the actual create failure and allows a new session attempt', async () => {
+  const create = vi
+    .fn()
+    .mockRejectedValueOnce(new DOMException('Model service unavailable.', 'NotReadableError'))
+    .mockResolvedValueOnce({ destroy: vi.fn() });
+  const availability = vi.fn();
+  vi.stubGlobal('LanguageModel', { availability, create });
   const ai = new NativeBrowserAi();
-  await ai.checkAvailability('image');
-  const pending = ai.prepare('image');
-  await ai.checkAvailability('image');
-  expect(ai.states().image.availability).toBe('available');
-  expect(ai.states().image.ready).toBe(false);
-  expect(ai.states().image.preparing).toBe(true);
-  ai.reset('image');
-  await pending;
-});
-
-it('opens an installed model immediately without waiting for a download click', async () => {
-  const create = vi.fn().mockResolvedValue({ destroy: vi.fn() });
-  vi.stubGlobal('LanguageModel', { availability: vi.fn().mockResolvedValue('available'), create });
-  const ai = new NativeBrowserAi();
-  await ai.checkAndPrepareInstalled('image');
-  expect(create).toHaveBeenCalledOnce();
+  await expect(ai.prepare('image')).rejects.toThrow('Model service unavailable.');
+  expect(ai.states().image.error).toBe('Model service unavailable.');
+  expect(ai.states().image.preparing).toBe(false);
+  await ai.prepare('image');
   expect(ai.states().image.ready).toBe(true);
+  expect(ai.states().image.error).toBe('');
+  expect(availability).not.toHaveBeenCalled();
   ai.destroy();
 });
-
-it.each(['downloadable', 'downloading', 'unavailable'])(
-  'does not start a new session automatically while Chrome reports %s',
-  async (availability) => {
-    const create = vi.fn();
-    vi.stubGlobal('LanguageModel', {
-      availability: vi.fn().mockResolvedValue(availability),
-      create,
-    });
-    const ai = new NativeBrowserAi();
-    await ai.checkAndPrepareInstalled('image');
-    expect(create).not.toHaveBeenCalled();
-    expect(ai.states().image.ready).toBe(false);
-  },
-);
