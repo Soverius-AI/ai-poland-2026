@@ -1,6 +1,6 @@
 # Incident Queries With AG-UI, Mastra And Local Inference
 
-The existing incident-management app adapted from the NomadCoder / AI DevCraft example. The Angular UI, facility API, SQLite historian, Mastra workflow and model calls run on your configured infrastructure. The main agent, SQL generator and model reviewer share a local OpenAI-compatible Chat Completions endpoint; there are no OpenRouter/Jev calls or automatic hosted fallback in this version.
+The existing incident-management app adapted from the NomadCoder / AI DevCraft example. The Angular UI, facility API, SQLite historian and Mastra workflow run locally; model calls use your explicitly configured endpoint (local by default). The main agent, SQL generator and model reviewer share the configured OpenAI-compatible Chat Completions endpoint; there is no automatic hosted fallback or Jev integration. OpenRouter can be explicitly configured as described below.
 
 ## Start
 
@@ -21,6 +21,17 @@ pnpm dev
 ```
 
 The configured endpoint is logged at startup. `.env.example` defaults to localhost:8080/v1 and a non-secret local API-key placeholder. Set LOCAL_MODEL_BASE_URL, LOCAL_MODEL_NAME and optionally LOCAL_REVIEW_MODEL to match your internal server. For a remote server on your own infrastructure, provide its explicit URL and authentication. No server selection or cloud fallback happens automatically.
+
+To explicitly use OpenRouter with Gemma 4 instead of the local server, set these values in your untracked `.env`:
+
+```dotenv
+LOCAL_MODEL_BASE_URL=https://openrouter.ai/api/v1
+LOCAL_MODEL_NAME=google/gemma-4-31b-it
+LOCAL_REVIEW_MODEL=google/gemma-4-31b-it
+LOCAL_MODEL_API_KEY=your-openrouter-api-key
+```
+
+The main agent, SQL generator and SQL reviewer then use OpenRouter. Deterministic SQL validation and database execution remain in the local facility service. Restart `pnpm 03-agui` after changing `.env`. Credentials stay out of Git; the committed `.env.example` retains the local-server defaults.
 
 - App: http://localhost:4600
 - Facility API: http://127.0.0.1:3101
