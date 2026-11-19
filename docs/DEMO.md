@@ -2,7 +2,7 @@
 
 ## Native Browser - About 3.5 Minutes
 
-Run `pnpm native`, open localhost:4200 in desktop Chrome and prepare both modalities before the talk. Availability checks do not download. Download-and-prepare is an explicit action; a session becomes ready only after creation resolves.
+Run `pnpm 01-browser-models`, open localhost:4200 in desktop Chrome and prepare both modalities before the talk. Availability checks do not download. Download-and-prepare is an explicit action; a session becomes ready only after creation resolves.
 
 1. Click **Extract sample passport**. Inspect the source image and the six form fields. The sample is entirely synthetic: Alex Morgan, 1988-04-12, D00000001, Demo Republic, expiry 2032-04-12.
 2. Correct one field manually. Explain that JSON shape is validated and the person reviews the extraction; this is not identity verification or form submission.
@@ -12,7 +12,7 @@ The two modalities have separate preparation states so audio being unsupported d
 
 ## Browser RAG - About 3 Minutes
 
-Run `pnpm rag`. For offline rehearsal use `pnpm --dir examples/02-browser-rag build`, then `pnpm rag:preview`, using the same localhost:4400 origin/profile.
+Run `pnpm 02-rag`. For offline rehearsal use `pnpm --dir examples/02-browser-rag build`, then `pnpm 02-rag:preview`, using the same localhost:4400 origin/profile.
 
 Prepare models before the talk. Ask:
 
@@ -26,7 +26,7 @@ Skip a long RAG-on/off comparison if time is tight. The corpus has 13 teaching p
 
 ## AG-UI / Mastra - About 3.5 Minutes
 
-Start the local model server, then `pnpm agui`. Open localhost:4300 and Mastra Studio at localhost:4211 side by side.
+Start the local model server, then `pnpm 03-agui`. Open localhost:4300 and Mastra Studio at localhost:4211 side by side.
 
 > Show the highest air temperature for each shift manager.
 

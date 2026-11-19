@@ -11,9 +11,9 @@
     "setup": "node scripts/examples.mjs install",
     "build": "node scripts/examples.mjs build",
     "test": "node scripts/examples.mjs test",
-    "native": "pnpm --dir examples/01-native-browser start",
-    "rag": "pnpm --dir examples/02-browser-rag dev",
-    "rag:preview": "pnpm --dir examples/02-browser-rag preview",
-    "agui": "pnpm --dir examples/03-ag-ui dev"
+    "01-browser-models": "pnpm --dir examples/01-native-browser start",
+    "02-rag": "pnpm --dir examples/02-browser-rag dev",
+    "02-rag:preview": "pnpm --dir examples/02-browser-rag preview",
+    "03-agui": "pnpm --dir examples/03-ag-ui dev"
   }
 }

@@ -21,9 +21,9 @@ pnpm test
 Start only the example you need:
 
 ```sh
-pnpm native
-pnpm rag
-pnpm agui
+pnpm 01-browser-models
+pnpm 02-rag
+pnpm 03-agui
 ```
 
 For AG-UI, first copy `examples/03-ag-ui/.env.example` to `.env` **inside that example** and configure/start your local model server. No cloud key is required. See the example README for the exact endpoint contract.
