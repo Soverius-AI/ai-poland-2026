@@ -21,13 +21,30 @@ import { emptyPassport } from './passport';
         @let state = ai.states()[kind];
         <article>
           <h2>{{ kind === 'image' ? 'Image input' : 'Audio input' }}</h2>
-          <p role="status">{{ state.ready ? 'Ready' : state.availability }}</p>
+          <p role="status">
+            {{
+              state.ready
+                ? 'Ready'
+                : state.preparing
+                  ? 'Preparing browser model…'
+                  : state.availability
+            }}
+          </p>
           @if (state.preparing) {
             <progress
               max="1"
               [attr.value]="state.progress ?? null"
               aria-label="Model preparation progress"
             ></progress>
+            <p>
+              {{
+                state.progress === undefined
+                  ? 'Waiting for Chrome to report progress…'
+                  : state.progress === 1
+                    ? 'Finishing preparation…'
+                    : (state.progress * 100).toFixed(0) + '% downloaded'
+              }}
+            </p>
           }
           <button
             type="button"
@@ -38,13 +55,27 @@ import { emptyPassport } from './passport';
               ['checking', 'unsupported', 'unavailable'].includes(state.availability)
             "
           >
-            {{ state.availability === 'available' ? 'Prepare session' : 'Download and prepare' }}
+            {{
+              state.availability === 'available'
+                ? 'Prepare session'
+                : state.availability === 'downloading'
+                  ? 'Continue preparation'
+                  : 'Download and prepare'
+            }}
           </button>
-          <button type="button" (click)="ai.checkAvailability(kind)" [disabled]="busy()">
+          <button
+            type="button"
+            (click)="ai.checkAndPrepareInstalled(kind)"
+            [disabled]="!!working()"
+          >
             Check again
           </button>
-          <button type="button" (click)="ai.reset(kind)" [disabled]="busy() || !state.ready">
-            Reset session
+          <button
+            type="button"
+            (click)="ai.reset(kind)"
+            [disabled]="!!working() || (!state.ready && !state.preparing)"
+          >
+            {{ state.preparing ? 'Cancel preparation' : 'Reset session' }}
           </button>
           @if (state.error) {
             <p role="alert" class="error">{{ state.error }}</p>
@@ -110,13 +141,18 @@ export class App implements OnInit, OnDestroy {
     () => !!this.working() || this.kinds.some((kind) => this.ai.states()[kind].preparing),
   );
   ngOnInit() {
-    for (const kind of this.kinds) void this.ai.checkAvailability(kind);
+    for (const kind of this.kinds) void this.ai.checkAndPrepareInstalled(kind);
   }
   ngOnDestroy() {
     this.ai.destroy();
   }
   async prepare(kind: InputKind) {
-    await this.run('', () => this.ai.prepare(kind));
+    this.error.set('');
+    try {
+      await this.ai.prepare(kind);
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Model preparation failed.');
+    }
   }
   async extract(file: Blob) {
     await this.run('Reading the passport…', async () => {

@@ -18,8 +18,14 @@ it('renders unknown download progress without interrupting preparation controls'
   const progress = element.querySelector('progress');
   expect(progress).not.toBeNull();
   expect(progress?.hasAttribute('value')).toBe(false);
-  const controls = element.querySelectorAll<HTMLButtonElement>('.preparation button');
+  const controls = element.querySelectorAll<HTMLButtonElement>(
+    '.preparation article button:first-of-type',
+  );
   expect([...controls].every((button) => button.disabled)).toBe(true);
+  const cancel = [...element.querySelectorAll<HTMLButtonElement>('button')].find(
+    (button) => button.textContent?.trim() === 'Cancel preparation',
+  );
+  expect(cancel?.disabled).toBe(false);
 
   ai.states.update((states) => ({
     ...states,

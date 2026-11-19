@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { parsePassport, passportSchema } from './passport';
 export type InputKind = 'image' | 'audio';
+export const PREPARATION_STALL_MS = 60_000;
 type Availability =
   'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unsupported' | 'checking';
 interface Preparation {
@@ -31,8 +32,8 @@ export const inputOptions: Record<InputKind, LanguageModelCreateOptions> = {
 export class NativeBrowserAi {
   readonly states = signal<Record<InputKind, Preparation>>({ image: initial(), audio: initial() });
   readonly #sessions: Partial<Record<InputKind, LanguageModel>> = {};
-  async checkAvailability(kind: InputKind) {
-    if (this.states()[kind].preparing) return;
+  readonly #attempts: Partial<Record<InputKind, AbortController>> = {};
+  async checkAvailability(kind: InputKind, preserveError = false) {
     if (typeof LanguageModel === 'undefined') {
       this.#update(kind, { availability: 'unsupported' });
       return;
@@ -40,10 +41,19 @@ export class NativeBrowserAi {
     try {
       this.#update(kind, {
         availability: await LanguageModel.availability(inputOptions[kind]),
-        error: '',
+        error: preserveError ? this.states()[kind].error : '',
       });
     } catch (error) {
       this.#update(kind, { availability: 'unavailable', error: message(error) });
+    }
+  }
+  async checkAndPrepareInstalled(kind: InputKind) {
+    await this.checkAvailability(kind);
+    if (this.states()[kind].availability !== 'available') return;
+    try {
+      await this.prepare(kind);
+    } catch {
+      // Preparation failures are displayed per modality; leave explicit retry available.
     }
   }
   async prepare(kind: InputKind) {
@@ -51,26 +61,77 @@ export class NativeBrowserAi {
     if (current.ready || current.preparing) return;
     if (['unavailable', 'unsupported', 'checking'].includes(current.availability))
       throw new Error(`The browser cannot prepare ${kind} input. Check availability first.`);
+    const controller = new AbortController();
+    this.#attempts[kind] = controller;
     this.#update(kind, { preparing: true, error: '', progress: undefined });
-    try {
-      const session = await LanguageModel.create({
-        ...inputOptions[kind],
-        monitor: (monitor) => {
-          monitor.addEventListener('downloadprogress', (event) =>
-            this.#update(kind, { progress: event.loaded }),
-          );
-        },
+    let timeout: ReturnType<typeof setTimeout>;
+    const restartStallTimer = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(
+        () =>
+          controller.abort(
+            new DOMException(
+              'Chrome did not report model preparation progress for 60 seconds. This attempt was stopped. Check the browser download, then try again.',
+              'TimeoutError',
+            ),
+          ),
+        PREPARATION_STALL_MS,
+      );
+    };
+    const aborted = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener('abort', () => reject(controller.signal.reason), {
+        once: true,
       });
+    });
+    restartStallTimer();
+    try {
+      const creation = LanguageModel.create({
+        ...inputOptions[kind],
+        signal: controller.signal,
+        monitor: (monitor) => {
+          monitor.addEventListener('downloadprogress', (event) => {
+            if (this.#attempts[kind] !== controller || controller.signal.aborted) return;
+            const progress = event.loaded;
+            if (!Number.isFinite(progress) || progress < 0 || progress > 1) return;
+            const previous = this.states()[kind].progress;
+            if (previous === undefined || progress > previous) restartStallTimer();
+            this.#update(kind, { progress });
+          });
+        },
+      }).then((session) => {
+        if (controller.signal.aborted || this.#attempts[kind] !== controller) {
+          session.destroy();
+          throw (
+            controller.signal.reason ?? new DOMException('Preparation cancelled.', 'AbortError')
+          );
+        }
+        return session;
+      });
+      // Some browser implementations leave create pending even after abort.
+      // Race it explicitly so the app can always cancel or recover a stalled attempt.
+      const session = await Promise.race([creation, aborted]);
+      if (controller.signal.aborted || this.#attempts[kind] !== controller) {
+        session.destroy();
+        return;
+      }
       this.#sessions[kind] = session;
-      // A downloadprogress event at 100% is not a ready session; await create().
+      // Progress at 100% is not readiness: only a resolved create() is a session.
       this.#update(kind, { ready: true, availability: 'available', progress: 1 });
     } catch (error) {
+      // A cancelled/replaced attempt must not change the state of a newer retry.
+      if (this.#attempts[kind] !== controller) return;
       this.#update(kind, { ready: false, error: message(error) });
       throw error;
     } finally {
-      this.#update(kind, { preparing: false });
+      clearTimeout(timeout!);
+      if (this.#attempts[kind] === controller) {
+        delete this.#attempts[kind];
+        this.#update(kind, { preparing: false });
+        void this.checkAvailability(kind, true);
+      }
     }
   }
+
   async extract(file: Blob) {
     const session = await this.#clone('image');
     try {
@@ -116,13 +177,19 @@ export class NativeBrowserAi {
     }
   }
   reset(kind: InputKind) {
-    this.#sessions[kind]?.destroy();
-    delete this.#sessions[kind];
-    this.#update(kind, { ready: false, progress: undefined, error: '' });
+    this.#stop(kind);
     void this.checkAvailability(kind);
   }
   destroy() {
-    for (const session of Object.values(this.#sessions)) session.destroy();
+    for (const kind of ['image', 'audio'] as const) this.#stop(kind);
+  }
+  #stop(kind: InputKind) {
+    const attempt = this.#attempts[kind];
+    delete this.#attempts[kind];
+    attempt?.abort(new DOMException('Preparation cancelled.', 'AbortError'));
+    this.#sessions[kind]?.destroy();
+    delete this.#sessions[kind];
+    this.#update(kind, { ready: false, preparing: false, progress: undefined, error: '' });
   }
   #clone(kind: InputKind) {
     const session = this.#sessions[kind];
@@ -135,5 +202,7 @@ export class NativeBrowserAi {
   }
 }
 function message(error: unknown) {
-  return error instanceof Error ? error.message : 'The browser AI request failed.';
+  return error instanceof Error || error instanceof DOMException
+    ? error.message
+    : 'The browser AI request failed.';
 }
