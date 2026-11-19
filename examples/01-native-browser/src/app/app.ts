@@ -25,7 +25,7 @@ import { emptyPassport } from './passport';
           @if (state.preparing) {
             <progress
               max="1"
-              [value]="state.progress"
+              [attr.value]="state.progress ?? null"
               aria-label="Model preparation progress"
             ></progress>
           }
