@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.angular/
+.mastra/
+.env
+.env.*
+!.env.example
+examples/03-ag-ui/apps/agent-service/data/
+examples/03-ag-ui/apps/facility-service/data/
+*.sqlite*
+*.db*
+*.log
+.DS_Store
+.cache/
+coverage/
+examples/02-browser-rag/public/onnx/

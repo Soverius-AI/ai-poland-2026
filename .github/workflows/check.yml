@@ -1,0 +1,32 @@
+name: Examples
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [01-native-browser, 02-browser-rag, 03-ag-ui]
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test --watch=false
+        if: matrix.example == '01-native-browser'
+      - run: pnpm test
+        if: matrix.example != '01-native-browser'
+      - run: pnpm typecheck:pipeline
+        if: matrix.example == '02-browser-rag'
+      - run: pnpm typecheck
+        if: matrix.example == '03-ag-ui'

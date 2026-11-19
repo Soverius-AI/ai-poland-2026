@@ -1,0 +1,33 @@
+{
+  "copied_on": "2026-11-19",
+  "sources": [
+    {
+      "destination": "examples/01-native-browser",
+      "revision": "11d4e255e4c07652581c317446c6a896763e63b6",
+      "source_project": "NomadCoder / hands-on-local-llms",
+      "source_path": "examples/01-native-browser-models"
+    },
+    {
+      "destination": "examples/02-browser-rag",
+      "revision": "137e1d6cc383199b449953d44b6f70f8e3cce662",
+      "source_project": "AI DevCraft browser-rag",
+      "source_path": "apps/browser-rag"
+    },
+    {
+      "destination": "examples/03-ag-ui",
+      "revision": "11d4e255e4c07652581c317446c6a896763e63b6",
+      "source_project": "NomadCoder / hands-on-local-llms",
+      "source_path": "examples/05-ag-ui"
+    }
+  ],
+  "scope": "Selected example source only; no credentials, model weights, databases, node_modules or repository history.",
+  "adaptations": [
+    "Restore native Prompt API image/audio with extended synthetic passport and typed validation.",
+    "Extract standalone ONNX browser RAG app.",
+    "Replace hosted generation/review with a configurable local Chat Completions endpoint."
+  ],
+  "upstream_links": [
+    "https://github.com/Soverius-AI/2026-11-02-nomadcoder-webinar-local-models-use-cases",
+    "https://github.com/Soverius-AI/ai-rag-basic"
+  ]
+}
